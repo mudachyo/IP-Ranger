@@ -1,0 +1,122 @@
+name: Update IP Lists
+
+on:
+  schedule:
+    # Запуск каждый день в 02:00 UTC
+    - cron: '0 2 * * *'
+  
+  workflow_dispatch:
+    # Возможность запуска вручную через GitHub UI
+
+jobs:
+  update-ip-lists:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Download and setup sing-box
+        run: |
+          echo "Скачивание sing-box для Linux..."
+          SINGBOX_VERSION="1.12.12"
+          SINGBOX_URL="https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
+          
+          curl -L -o sing-box.tar.gz "$SINGBOX_URL"
+          tar -xzf sing-box.tar.gz
+          
+          SINGBOX_DIR=$(tar -tzf sing-box.tar.gz | head -1 | cut -f1 -d"/")
+          
+          chmod +x "${SINGBOX_DIR}/sing-box"
+          sudo mv "${SINGBOX_DIR}/sing-box" /usr/local/bin/sing-box
+          
+          rm -rf sing-box.tar.gz "${SINGBOX_DIR}"
+          
+          echo "Проверка установки:"
+          sing-box version
+      
+      - name: Run IP lists update script
+        run: |
+          echo "Запуск скрипта обновления..."
+          python3 update-ip-lists.py
+      
+      - name: Update README with last updated date
+        run: |
+          CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          LANG=C.UTF-8 LC_ALL=C.UTF-8 sed -i "s|<!-- LAST_UPDATED -->.*<!-- /LAST_UPDATED -->|<!-- LAST_UPDATED -->${CURRENT_DATE}<!-- /LAST_UPDATED -->|g" README.md
+          echo "README.md обновлён с датой: $CURRENT_DATE"
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [ -d "ip-lists" ]; then
+            echo "Содержимое ip-lists:"
+            find ip-lists -type f | head -20
+          fi
+          
+          git add ip-lists/ README.md
+          
+          if ! git diff --cached --quiet; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "Обнаружены изменения"
+          else
+            echo "Изменений не обнаружено"
+          fi
+      
+      - name: Configure git
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          CHANGED_FILES=$(git diff --cached --name-only | wc -l)
+          echo "Изменено файлов: $CHANGED_FILES"
+          
+          git commit -m "chore: auto-update IP lists [skip ci]
+
+          Updated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Files changed: $CHANGED_FILES"
+          
+          git push
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Отчёт обновления IP-списков" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Дата:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d "ip-lists" ]; then
+            JSON_COUNT=$(find ip-lists -name "*.json" | wc -l)
+            SRS_COUNT=$(find ip-lists -name "*.srs" | wc -l)
+            
+            echo "**Статистика:**" >> $GITHUB_STEP_SUMMARY
+            echo "- JSON файлов: $JSON_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- SRS файлов: $SRS_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "**Провайдеры:**" >> $GITHUB_STEP_SUMMARY
+            find ip-lists -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Папка ip-lists не найдена" >> $GITHUB_STEP_SUMMARY
+          fi
