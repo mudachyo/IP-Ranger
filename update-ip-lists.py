@@ -33,12 +33,66 @@ def load_providers_config(config_path):
         print(f"ОШИБКА: Ошибка чтения JSON: {e}", file=sys.stderr)
         sys.exit(1)
 
-def fetch_asn_data(asn, max_retries=3):
-    """Получение данных по ASN с API с повторными попытками."""
+def fetch_asn_data_fallback(asn, api_key):
+    """Резервный метод получения данных по ASN через ipapi.is API.
+    
+    Args:
+        asn: ASN номер (с или без префикса AS)
+        api_key: API ключ для ipapi.is
+        
+    Returns:
+        dict: Данные в формате совместимом с основным API или None при ошибке
+    """
     if not asn.startswith("AS"):
         asn = f"AS{asn}"
     
-    url = f"https://ipinfo.robinbraemer.workers.dev/{asn}"
+    if not api_key:
+        print("  [!] API ключ для ipapi.is не найден", file=sys.stderr)
+        return None
+    
+    url = f"https://api.ipapi.is?q={asn}&key={api_key}"
+    
+    try:
+        print(f"  [*] Использую резервный API (ipapi.is)...")
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # Конвертируем формат ipapi.is в формат основного API
+        converted_data = {
+            'prefixes': [],
+            'prefixes6': []
+        }
+        
+        # Обрабатываем IPv4 префиксы
+        for prefix in data.get('prefixes', []):
+            converted_data['prefixes'].append({'netblock': prefix})
+        
+        # Обрабатываем IPv6 префиксы
+        for prefix6 in data.get('prefixesIPv6', []):
+            converted_data['prefixes6'].append({'netblock': prefix6})
+        
+        total_prefixes = len(converted_data['prefixes']) + len(converted_data['prefixes6'])
+        print(f"  [OK] Получено {total_prefixes} префиксов через резервный API")
+        
+        return converted_data
+        
+    except requests.RequestException as e:
+        print(f"  [!] Резервный API также не удался: {e}", file=sys.stderr)
+        return None
+
+def fetch_asn_data_from_url(asn, url, max_retries=2, custom_headers=None):
+    """Получение данных по ASN с конкретного URL с повторными попытками.
+    
+    Args:
+        asn: ASN номер (с префиксом AS)
+        url: URL для запроса
+        max_retries: Максимальное количество попыток
+        custom_headers: Дополнительные заголовки для запроса (опционально)
+        
+    Returns:
+        dict: Данные ASN или None при ошибке
+    """
     headers = {
         'accept': '*/*',
         'accept-language': 'en-US,en;q=0.9',
@@ -46,6 +100,10 @@ def fetch_asn_data(asn, max_retries=3):
         'content-type': 'application/json',
         'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
     }
+    
+    # Применяем custom headers если переданы
+    if custom_headers:
+        headers.update(custom_headers)
     
     for attempt in range(1, max_retries + 1):
         try:
@@ -59,10 +117,57 @@ def fetch_asn_data(asn, max_retries=3):
                 print(f"  ⏳ Повтор через {wait_time} секунд...")
                 time.sleep(wait_time)
             else:
-                print(f"ОШИБКА: Запрос {asn} не удался после {max_retries} попыток: {e}", file=sys.stderr)
+                print(f"  [!] Не удалось после {max_retries} попыток: {e}", file=sys.stderr)
                 return None
     
     return None
+
+def fetch_asn_data(asn, max_retries=2):
+    """Получение данных по ASN с API с каскадными резервными источниками.
+    
+    Порядок попыток:
+    1. https://ipinfo.robinbraemer.workers.dev (2 попытки)
+    2. https://falling-shape-b6eb.kotanoff-adm.workers.dev (2 попытки)
+    3. https://ipinfo.io/widget/demo (2 попытки)
+    4. https://api.ipapi.is с API ключом (1 попытка)
+    """
+    if not asn.startswith("AS"):
+        asn = f"AS{asn}"
+    
+    # Основной источник
+    print(f"  [*] Попытка получить данные с основного API...")
+    url_primary = f"https://ipinfo.robinbraemer.workers.dev/{asn}"
+    data = fetch_asn_data_from_url(asn, url_primary, max_retries)
+    if data:
+        return data
+    
+    # Резервный источник #1 (тот же формат)
+    print(f"  [*] Переключаюсь на резервный API #1...")
+    url_secondary = f"https://falling-shape-b6eb.kotanoff-adm.workers.dev/{asn}"
+    data = fetch_asn_data_from_url(asn, url_secondary, max_retries)
+    if data:
+        return data
+    
+    # Резервный источник #2 (тот же формат, требует специальные headers)
+    print(f"  [*] Переключаюсь на резервный API #2...")
+    url_tertiary = f"https://ipinfo.io/widget/demo/{asn}"
+    ipinfo_headers = {
+        'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
+        'content-type': 'application/json',
+        'referer': 'https://ipinfo.io/'
+    }
+    data = fetch_asn_data_from_url(asn, url_tertiary, max_retries, custom_headers=ipinfo_headers)
+    if data:
+        return data
+    
+    # Резервный источник #3 (ipapi.is - другой формат)
+    print(f"  [*] Переключаюсь на резервный API #3 (ipapi.is)...")
+    api_key = os.environ.get('IPAPI_KEY')
+    if api_key:
+        return fetch_asn_data_fallback(asn, api_key)
+    else:
+        print(f"  [!] Резервный API #3 недоступен (IPAPI_KEY не установлен)", file=sys.stderr)
+        return None
 
 def process_provider(provider_name, asn_list):
     """Обработка всех ASN для одного провайдера.

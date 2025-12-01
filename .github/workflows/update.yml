@@ -52,6 +52,8 @@ jobs:
           sing-box version
       
       - name: Run IP lists update script
+        env:
+          IPAPI_KEY: ${{ secrets.IPAPI_KEY }}
         run: |
           echo "Запуск скрипта обновления..."
           python3 update-ip-lists.py
