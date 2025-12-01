@@ -4,9 +4,8 @@
 
 ### Автоматически обновляемые списки IP-подсетей для обхода блокировок
 
-[![GitHub stars](https://img.shields.io/github/stars/mudachyo/IP-Ranger
-)](https://github.com/mudachyo/IP-Ranger/stargazers)
-[![Last Updated](https://img.shields.io/badge/обновлено-ежедневно-brightgreen)](https://github.com/mudachyo/IP-Ranger)
+[![GitHub stars](https://img.shields.io/github/stars/mudachyo/IP-Ranger)](https://github.com/mudachyo/IP-Ranger/stargazers)
+[![Last Updated](https://img.shields.io/badge/обновление-ежедневно-brightgreen)](https://github.com/mudachyo/IP-Ranger)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 > 🕐 **Последнее обновление:** <!-- LAST_UPDATED -->2025-12-01 04:00:42 UTC<!-- /LAST_UPDATED -->
@@ -154,11 +153,19 @@ ASN (Autonomous System Number) — это уникальный номер, ко�
 Используйте <a href="https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/" target="_blank">DPI-чекер от Hyperion</a> — он покажет, какие сервисы и протоколы блокируются на уровне DPI (Deep Packet Inspection) вашим интернет-провайдером. Это поможет понять, какие списки IP вам нужны.
 </details>
 
+---
+
 ## 🌟 Поддержите проект
 
 Если этот проект помог вам, поставьте ⭐ на GitHub!
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mudachyo/IP-Ranger&type=date&legend=top-left)](https://star-history.com/#mudachyo/IP-Ranger&Date)
+<a href="https://www.star-history.com/#mudachyo/IP-Ranger&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=mudachyo/IP-Ranger&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=mudachyo/IP-Ranger&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=mudachyo/IP-Ranger&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ---
 
