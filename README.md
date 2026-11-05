@@ -8,7 +8,7 @@
 [![Last Updated](https://img.shields.io/badge/обновление-ежедневно-brightgreen)](https://github.com/mudachyo/IP-Ranger)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> 🕐 **Последнее обновление:** <!-- LAST_UPDATED -->2026-11-04 09:05:27 UTC<!-- /LAST_UPDATED -->
+> 🕐 **Последнее обновление:** <!-- LAST_UPDATED -->2026-11-05 09:28:32 UTC<!-- /LAST_UPDATED -->
 
 </div>
 
